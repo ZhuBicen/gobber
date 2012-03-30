@@ -1,0 +1,22 @@
+Gobber
+======
+
+Intro
+-----
+
+Gobber is an XMPP server written in [Go][go-lang]. It is currently still in
+progress and not yet ready for actual use. It is intended to be a lightweight
+fast server doing only one thing in the right way.
+
+Licence
+-------
+
+Gobber is open source under the permissive ISC licence; see `COPYING` for more
+details.
+
+Authors
+-------
+
+ * Josh Holland <jrh@joshh.co.uk>
+
+[go-lang]: http://golang.org/
