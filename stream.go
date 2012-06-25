@@ -5,10 +5,10 @@
 package main
 
 import (
-	"bytes"
 	"encoding/xml"
 	"fmt"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 )
@@ -27,8 +27,9 @@ func (s *StreamError) Error() string {
 type Stream struct {
 	io.ReadWriter
 
-	To, From string
-	Language string
+	To       string `xml:to,attr`
+	From     string `xml:from,attr`
+	Language string `xml:lang,attr`
 	Id       string
 }
 
@@ -37,54 +38,40 @@ type Stream struct {
 // It verifies the xml header and initial stream element and
 // sets up the stream object.
 func NewStream(buf io.ReadWriter) (s Stream, err error) {
+	d := xml.NewDecoder(buf)
 	s = Stream{ReadWriter: buf}
 
-	d := xml.NewDecoder(buf)
+	for {
+		t, err := d.Token()
 
-	header, err := getProcInst(d)
+		if err != nil {
+			log.Print(err)
+			break
+		}
 
-	if err != nil {
-		return s, err
-	}
-
-	if header.Target != "xml" {
-		return s, &StreamError{"bad-format", "ProcInst not directed at xml"}
-	}
-
-	// consume whitespace
-	data, err := getCharData(d)
-	if err == nil && len(bytes.TrimSpace(data)) > 0 {
-		return s, &StreamError{"bad-format", "Invalid characters"}
-	}
-
-	elem, err := getStartElement(d)
-
-	if n := elem.Name; n.Local != "stream" || n.Space != "stream" {
-		return s, &StreamError{"bad-format", "Start element should be stream:stream"}
-	}
-
-	for _, attr := range elem.Attr {
-		switch attr.Name.Local {
-		case "to":
-			s.To = attr.Value
-		case "from":
-			s.From = attr.Value
-		case "id":
-			s.Id = attr.Value
-		case "lang":
-			s.Language = attr.Value
-		case "version":
-			if !CheckVersion(attr.Value) {
-				return s, &StreamError{"unsupported-version", attr.Value}
-			}
-		case "stream":
-			if space, val := attr.Name.Space, attr.Value; space != "xmlns" || val != "http://etherx.jabber.org/streams" {
-				return s, &StreamError{"invalid-namespace", attr.Value}
+		switch el := t.(type) {
+		case xml.StartElement:
+			if el.Name.Local == "stream" {
+				setupStream(&el, &s)
+				return s, nil
 			}
 		}
 	}
 
-	return s, nil
+	return s, new(StreamError)
+}
+
+func setupStream(el *xml.StartElement, st *Stream) {
+	for _, attr := range el.Attr {
+		switch attr.Name.Local {
+		case "to":
+			st.To = attr.Value
+		case "from":
+			st.From = attr.Value
+		case "lang":
+			st.Language = attr.Value
+		}
+	}
 }
 
 // CheckVersion checks to see whether we can handle this version
