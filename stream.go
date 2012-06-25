@@ -31,6 +31,9 @@ type Stream struct {
 	From     string `xml:from,attr`
 	Language string `xml:lang,attr`
 	Id       string
+
+	// Out is a channel that writes the given string response to the client
+	Out chan string
 }
 
 // NewStream takes a ReadWriter and turns it into a stream
@@ -38,6 +41,13 @@ type Stream struct {
 func NewStream(buf io.ReadWriter) (s Stream, err error) {
 	d := xml.NewDecoder(buf)
 	s = Stream{ReadWriter: buf}
+
+	s.Out = make(chan string)
+	go func() {
+		for val := range s.Out {
+			io.WriteString(s, val)
+		}
+	}()
 
 	for {
 		t, err := d.Token()
