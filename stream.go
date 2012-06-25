@@ -35,8 +35,6 @@ type Stream struct {
 
 // NewStream takes a ReadWriter and turns it into a stream
 // if possible or returns an error otherwise.
-// It verifies the xml header and initial stream element and
-// sets up the stream object.
 func NewStream(buf io.ReadWriter) (s Stream, err error) {
 	d := xml.NewDecoder(buf)
 	s = Stream{ReadWriter: buf}
