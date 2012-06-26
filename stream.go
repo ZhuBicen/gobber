@@ -5,11 +5,30 @@
 package main
 
 import (
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
 	"log"
 )
+
+// Id is a channel for getting random id strings
+var Id chan string
+
+func init() {
+	Id = make(chan string, 16)
+	go func() {
+		buf := make([]byte, 20)
+		for {
+			_, err := rand.Read(buf)
+			if err != nil {
+				log.Fatal(err)
+			}
+			Id <- base64.StdEncoding.EncodeToString(buf)
+		}
+	}()
+}
 
 // StreamError is a generic error related to a stream.
 type StreamError struct {
