@@ -9,8 +9,6 @@ import (
 	"fmt"
 	"io"
 	"log"
-	"strconv"
-	"strings"
 )
 
 // StreamError is a generic error related to a stream.
