@@ -81,30 +81,3 @@ func setupStream(el *xml.StartElement, st *Stream) {
 		}
 	}
 }
-
-// CheckVersion checks to see whether we can handle this version
-// of XMPP, as per RFC 6120 §4.7.5. It currently checks only that the
-// version is correctly formatted and that the major part is 1. It will
-// return true if we can handle it and false if not.
-func CheckVersion(version string) bool {
-	fields := strings.Split(version, ".")
-	if len(fields) != 2 {
-		return false
-	}
-
-	major, err := strconv.Atoi(fields[0])
-	if err != nil {
-		return false
-	}
-
-	_, err = strconv.Atoi(fields[1])
-	if err != nil {
-		return false
-	}
-
-	if major != 1 {
-		return false
-	}
-
-	return true
-}
