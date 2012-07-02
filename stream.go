@@ -5,13 +5,38 @@
 package main
 
 import (
-	"bytes"
+	"crypto/rand"
+	"encoding/base64"
 	"encoding/xml"
 	"fmt"
 	"io"
-	"strconv"
-	"strings"
+	"log"
 )
+
+type ConnType int8
+
+const (
+	ServerClient = iota
+	ClientServer
+	ServerServe
+)
+
+// Id is a channel for getting random id strings
+var Id chan string
+
+func init() {
+	Id = make(chan string, 16)
+	go func() {
+		buf := make([]byte, 20)
+		for {
+			_, err := rand.Read(buf)
+			if err != nil {
+				log.Fatal(err)
+			}
+			Id <- base64.StdEncoding.EncodeToString(buf)
+		}
+	}()
+}
 
 // StreamError is a generic error related to a stream.
 type StreamError struct {
@@ -27,89 +52,57 @@ func (s *StreamError) Error() string {
 type Stream struct {
 	io.ReadWriter
 
-	To, From string
-	Language string
+	To       string `xml:to,attr`
+	From     string `xml:from,attr`
+	Language string `xml:lang,attr`
 	Id       string
+
+	// Out is a channel that writes the given string response to the client
+	Out chan string
 }
 
 // NewStream takes a ReadWriter and turns it into a stream
 // if possible or returns an error otherwise.
-// It verifies the xml header and initial stream element and
-// sets up the stream object.
-func NewStream(buf io.ReadWriter) (s Stream, err error) {
+func NewStream(buf io.ReadWriter, conntype ConnType) (s Stream, err error) {
+	d := xml.NewDecoder(buf)
 	s = Stream{ReadWriter: buf}
 
-	d := xml.NewDecoder(buf)
+	s.Out = make(chan string)
+	go func() {
+		for val := range s.Out {
+			io.WriteString(s, val)
+		}
+	}()
 
-	header, err := getProcInst(d)
+	for {
+		t, err := d.Token()
 
-	if err != nil {
-		return s, err
-	}
+		if err != nil {
+			log.Print(err)
+			break
+		}
 
-	if header.Target != "xml" {
-		return s, &StreamError{"bad-format", "ProcInst not directed at xml"}
-	}
-
-	// consume whitespace
-	data, err := getCharData(d)
-	if err == nil && len(bytes.TrimSpace(data)) > 0 {
-		return s, &StreamError{"bad-format", "Invalid characters"}
-	}
-
-	elem, err := getStartElement(d)
-
-	if n := elem.Name; n.Local != "stream" || n.Space != "stream" {
-		return s, &StreamError{"bad-format", "Start element should be stream:stream"}
-	}
-
-	for _, attr := range elem.Attr {
-		switch attr.Name.Local {
-		case "to":
-			s.To = attr.Value
-		case "from":
-			s.From = attr.Value
-		case "id":
-			s.Id = attr.Value
-		case "lang":
-			s.Language = attr.Value
-		case "version":
-			if !CheckVersion(attr.Value) {
-				return s, &StreamError{"unsupported-version", attr.Value}
-			}
-		case "stream":
-			if space, val := attr.Name.Space, attr.Value; space != "xmlns" || val != "http://etherx.jabber.org/streams" {
-				return s, &StreamError{"invalid-namespace", attr.Value}
+		switch el := t.(type) {
+		case xml.StartElement:
+			if el.Name.Local == "stream" {
+				setupStream(&el, &s)
+				return s, nil
 			}
 		}
 	}
 
-	return s, nil
+	return s, new(StreamError)
 }
 
-// CheckVersion checks to see whether we can handle this version
-// of XMPP, as per RFC 6120 §4.7.5. It currently checks only that the
-// version is correctly formatted and that the major part is 1. It will
-// return true if we can handle it and false if not.
-func CheckVersion(version string) bool {
-	fields := strings.Split(version, ".")
-	if len(fields) != 2 {
-		return false
+func setupStream(el *xml.StartElement, st *Stream) {
+	for _, attr := range el.Attr {
+		switch attr.Name.Local {
+		case "to":
+			st.To = attr.Value
+		case "from":
+			st.From = attr.Value
+		case "lang":
+			st.Language = attr.Value
+		}
 	}
-
-	major, err := strconv.Atoi(fields[0])
-	if err != nil {
-		return false
-	}
-
-	_, err = strconv.Atoi(fields[1])
-	if err != nil {
-		return false
-	}
-
-	if major != 1 {
-		return false
-	}
-
-	return true
 }

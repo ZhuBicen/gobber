@@ -2,7 +2,6 @@
 //
 // Copyright © 2012 Josh Holland <jrh@joshh.co.uk>
 
-
 package main
 
 import (
