@@ -12,7 +12,7 @@ import (
 func handle(conn net.Conn) {
 	log.Printf("Handling connection from %s", conn.RemoteAddr())
 
-	clientStream, err := NewStream(conn, ClientServer)
+	clientStream, err := NewStream(conn)
 
 	if err != nil {
 		log.Fatal(err)
@@ -22,5 +22,5 @@ func handle(conn net.Conn) {
 	log.Printf("Stream: %+v\n", clientStream)
 
 	log.Println("Replying to client")
-	serverStream, err := NewStream(conn, ServerClient)
+	serverStream, err := NewStream(conn)
 }

@@ -13,14 +13,6 @@ import (
 	"log"
 )
 
-type ConnType int8
-
-const (
-	ServerClient = iota
-	ClientServer
-	ServerServe
-)
-
 // Id is a channel for getting random id strings
 var Id chan string
 
@@ -63,7 +55,7 @@ type Stream struct {
 
 // NewStream takes a ReadWriter and turns it into a stream
 // if possible or returns an error otherwise.
-func NewStream(buf io.ReadWriter, conntype ConnType) (s Stream, err error) {
+func NewStream(buf io.ReadWriter) (s Stream, err error) {
 	d := xml.NewDecoder(buf)
 	s = Stream{ReadWriter: buf}
 
